@@ -137,13 +137,14 @@ app.get('/', (req, res) => {
   res.send('Telegram Book Bot is running!');
 });
 
+// የ 409 Conflict ግጭትን ሙሉ በሙሉ ለመከላከል ዌብሁክን ማጽዳት እና ማስጀመር
 bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
-  bot.launch().then(() => {
-    console.log('Bot started successfully with fixed Chapa payload!');
+  bot.launch({ drop_pending_updates: true }).then(() => {
+    console.log('Bot started successfully without conflicts!');
   });
 }).catch((err) => {
   console.error('Webhook reset error:', err);
-  bot.launch();
+  bot.launch({ drop_pending_updates: true });
 });
 
 app.listen(PORT, () => {
