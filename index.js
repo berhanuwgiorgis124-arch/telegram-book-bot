@@ -21,7 +21,7 @@ const CHAPA_VERIFY_URL = 'https://api.chapa.global/v2/payments/verify';
 
 const bookTitle = "እልፍ በል";
 const bookAuthor = "ብርሃኑ ወ/ጊዮርጊስ";
-const bookPrice = 490; // በብር
+const bookPrice = 490;
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
@@ -30,47 +30,45 @@ const orders = new Map();
 app.use(express.json({ limit: '100kb' }));
 
 async function createChapaCheckout(email, userId, txRef) {
-  try {
-    const response = await fetch(CHAPA_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount: bookPrice,
-        currency: 'ETB',
-        email: email,
-        first_name: `User${userId}`,
-        last_name: 'Telegram',
-        tx_ref: txRef,
-        callback_url: `${BASE_URL}/api/chapa-webhook`,
-        return_url: `${BASE_URL}/success?tx_ref=${txRef}`,
-        customization: {
-          title: bookTitle,
-          description: `የመጽሐፍ ግዢ በ Chapa - ${bookPrice} ETB`,
-        },
-      }),
-    });
+  const secretKey = process.env.CHAPA_SECRET_KEY.trim();
+  
+  const payload = {
+    amount: String(bookPrice),
+    currency: 'ETB',
+    email: email,
+    first_name: `User${userId}`,
+    last_name: 'Customer',
+    tx_ref: txRef,
+    callback_url: `${BASE_URL}/api/chapa-webhook`,
+    return_url: `${BASE_URL}/success?tx_ref=${txRef}`,
+    customization: {
+      title: bookTitle,
+      description: `የመጽሐፍ ግዢ - ${bookTitle}`,
+    },
+  };
 
-    const data = await response.json();
-    console.log('Chapa Response:', data); // የትኛውንም ስህተት በሰርቨር ሎግ ለማየት
+  const response = await fetch(CHAPA_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-    if (!response.ok || data.status !== 'success') {
-      throw new Error(data.message || JSON.stringify(data));
-    }
-    return data.data.checkout_url;
-  } catch (err) {
-    console.error('Chapa API Error Details:', err);
-    throw err;
+  const data = await response.json();
+  console.log('Chapa Full Response:', JSON.stringify(data));
+
+  if (!response.ok || data.status !== 'success') {
+    throw new Error(data.message || 'Failed to initialize Chapa payment');
   }
+  return data.data.checkout_url;
 }
 
-// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
-  const txRef = `tx-book-${userId}-${Date.now()}`;
-  const dummyEmail = `user${userId}@telegram.bot`;
+  const txRef = `tx-${userId}-${Date.now()}`;
+  const dummyEmail = `user${userId}@gmail.com`;
 
   try {
     const checkoutUrl = await createChapaCheckout(dummyEmail, userId, txRef);
@@ -83,8 +81,8 @@ bot.start(async (ctx) => {
       ])
     );
   } catch (err) {
-    console.error('Checkout creation failed:', err);
-    await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ የ Chapa አካውንት መረጃዎ ትክክል መሆኑን ያረጋግጡ።');
+    console.error('Chapa creation error:', err);
+    await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።');
   }
 });
 
@@ -95,8 +93,8 @@ app.post('/api/chapa-webhook', async (req, res) => {
   if (event.status === 'success' && txRef && orders.has(txRef)) {
     const order = orders.get(txRef);
     try {
-      const verifyRes = await fetch(`${CHAPA_VERIFY_URL}/verify/${txRef}`, {
-        headers: { Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}` },
+      const verifyRes = await fetch(`${CHAPA_VERIFY_URL}/${txRef}`, {
+        headers: { Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY.trim()}` },
       });
       const verifyData = await verifyRes.json();
 
@@ -141,7 +139,7 @@ app.get('/', (req, res) => {
 
 bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
   bot.launch().then(() => {
-    console.log('Bot started successfully!');
+    console.log('Bot started successfully with fixed Chapa payload!');
   });
 }).catch((err) => {
   console.error('Webhook reset error:', err);
