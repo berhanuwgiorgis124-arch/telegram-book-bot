@@ -1,8 +1,18 @@
 require('dotenv').config();
 
+
+require('dotenv').config();
+
 const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
+
+const requiredEnv = [
+  'TELEGRAM_BOT_TOKEN',
+  'CHAPA_SECRET_KEY',
+  'PUBLIC_BASE_URL'
+];
+
 
 require('dotenv').config();
 
