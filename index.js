@@ -88,7 +88,7 @@ bot.on('text', async (ctx) => {
       orders.set(txRef, { userId, email });
 
       await ctx.reply(
-        `በሠንጠረዡ መሠረት የ ${bookPrice} ብር ክፍያ ለመፈጸም ከታች ያለውን ሊንክ ይጫኑ 💳`,
+        `የ ${bookPrice} ብር ክፍያ ለመፈጸም ከታች ያለውን ሊንክ ይጫኑ 💳`,
         Markup.inlineKeyboard([
           [Markup.button.url('💳 490 ብር በ Chapa ክፈል', checkoutUrl)],
         ])
