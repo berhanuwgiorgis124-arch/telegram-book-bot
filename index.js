@@ -16,7 +16,6 @@ const requiredEnv = [
 
 require('dotenv').config();
 
-const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
 
@@ -25,6 +24,13 @@ const requiredEnv = [
   'CHAPA_SECRET_KEY',
   'PUBLIC_BASE_URL'
 ];
+
+require('dotenv').config();
+
+const crypto = require('node:crypto');
+
+const missingEnv = requiredEnv.filter((...);
+
 
 const requiredEnv = ['TELEGRAM_BOT_TOKEN', 'CHAPA_SECRET_KEY', 'PUBLIC_BASE_URL'];
 const missingEnv = requiredEnv.filter((key) => !process.env[key]);
