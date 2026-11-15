@@ -4,7 +4,6 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
 
-// ትክክለኛው የቴሌግራም ቶከን እና የ Chapa ኬይ በቀጥታ ተካትተዋል
 process.env.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8631290638:AAEXYExCUDhEedg2ifqtWycmyyx210uVMrw';
 process.env.CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK-2pBuoa0dU4xdQENMAyRiFuw6ATo6oRq4';
 
@@ -20,12 +19,12 @@ const BASE_URL = process.env.PUBLIC_BASE_URL.replace(/\/$/, '');
 const CHAPA_API_URL = 'https://api.chapa.global/v2/payments/hosted';
 const CHAPA_VERIFY_URL = 'https://api.chapa.global/v2/payments/verify';
 
-const bookTitle = "የዲጂታል መጽሐፍ (The Digital Edition)";
+const bookTitle = "እልፍ በል";
+const bookAuthor = "ብርሃኑ ወ/ጊዮርጊስ";
 const bookPrice = 490; // በብር
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
-const pendingCustomers = new Map();
 const orders = new Map();
 
 app.use(express.json({ limit: '100kb' }));
@@ -47,8 +46,8 @@ async function createChapaCheckout(email, userId, txRef) {
       callback_url: `${BASE_URL}/api/chapa-webhook`,
       return_url: `${BASE_URL}/success?tx_ref=${txRef}`,
       customization: {
-        title: 'መጽሐፍ ግዢ (Book Purchase)',
-        description: 'የመጽሐፍ ክፍያ በ Chapa',
+        title: bookTitle,
+        description: `የመጽሐፍ ግዢ በ Chapa - ${bookPrice} ETB`,
       },
     }),
   });
@@ -60,45 +59,25 @@ async function createChapaCheckout(email, userId, txRef) {
   return data.data.checkout_url;
 }
 
+// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት (ርዕስ እና ደራሲ ተካትተዋል)
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
-  pendingCustomers.set(userId, { step: 'awaiting_email' });
+  const txRef = `tx-book-${userId}-${Date.now()}`;
+  const dummyEmail = `user${userId}@telegram.bot`;
 
-  await ctx.reply(
-    `እንኳን ደህና መጡ! 📚\n\n${bookTitle}\nዋጋ፦ **${bookPrice} ብር**\n\nመጽሐፉን ለመግዛት እባክዎ የኢሜይል አድራሻዎን (Email) ይጻፉልን (ለምሳሌ: user@gmail.com):`
-  );
-});
+  try {
+    const checkoutUrl = await createChapaCheckout(dummyEmail, userId, txRef);
+    orders.set(txRef, { userId, email: dummyEmail });
 
-bot.on('text', async (ctx) => {
-  const userId = ctx.from.id;
-  const text = ctx.message.text.trim();
-
-  if (text.startsWith('/')) return;
-
-  const customer = pendingCustomers.get(userId);
-  if (customer && customer.step === 'awaiting_email') {
-    if (!text.includes('@') || !text.includes('.')) {
-      return ctx.reply('እባክዎ ትክክለኛ የኢሜይል አድራሻ ይጻፉ (ለምሳሌ: example@gmail.com):');
-    }
-
-    const email = text;
-    const txRef = `tx-book-${userId}-${Date.now()}`;
-
-    try {
-      const checkoutUrl = await createChapaCheckout(email, userId, txRef);
-      pendingCustomers.delete(userId);
-      orders.set(txRef, { userId, email });
-
-      await ctx.reply(
-        `የ ${bookPrice} ብር ክፍያ ለመፈጸም ከታች ያለውን ሊንክ ይጫኑ 💳`,
-        Markup.inlineKeyboard([
-          [Markup.button.url('💳 490 ብር በ Chapa ክፈል', checkoutUrl)],
-        ])
-      );
-    } catch (err) {
-      console.error(err);
-      await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።።');
-    }
+    await ctx.reply(
+      `እንኳን ደህና መጡ! 📚\n\n📖 **ርዕስ:** ${bookTitle}\n✍️ **ደራሲ:** ${bookAuthor}\n💰 **ዋጋ:** ${bookPrice} ብር\n\nመጽሐፉን ለመግዛት ከታች ያለውን ሊንክ ይጫኑ 💳`,
+      Markup.inlineKeyboard([
+        [Markup.button.url('💳 490 ብር በ Chapa ክፈል', checkoutUrl)],
+      ])
+    );
+  } catch (err) {
+    console.error('Chapa error:', err);
+    await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።');
   }
 });
 
@@ -119,7 +98,7 @@ app.post('/api/chapa-webhook', async (req, res) => {
           source: './content/book.pdf',
           filename: 'book.pdf',
         }, {
-          caption: 'እንኳን ደስ አሎት! ክፍያዎ ተሳክቷል። መጽሐፉን ከላይ ማግኘት ይችላሉ። 📖',
+          caption: `እንኳን ደስ አሎት! የ "${bookTitle}" ክፍያዎ ተሳክቷል። መጽሐፉን ከላይ ማግኘት ይችላሉ። 📖`,
         });
         orders.delete(txRef);
       }
@@ -139,7 +118,7 @@ app.get('/success', async (req, res) => {
         source: './content/book.pdf',
         filename: 'book.pdf',
       }, {
-        caption: 'ክፍያዎ ተረጋግጧል! መጽሐፉን ከቦቱ አግኝተዋል። 📖',
+        caption: `ክፍያዎ ተረጋግጧል! የ "${bookTitle}" መጽሐፍ ከቦቱ አግኝተዋል። 📖`,
       });
       orders.delete(txRef);
     } catch (err) {
@@ -153,8 +132,13 @@ app.get('/', (req, res) => {
   res.send('Telegram Book Bot is running!');
 });
 
-bot.launch().then(() => {
-  console.log('Bot started successfully with new token!');
+bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
+  bot.launch().then(() => {
+    console.log('Bot started successfully!');
+  });
+}).catch((err) => {
+  console.error('Webhook reset error:', err);
+  bot.launch();
 });
 
 app.listen(PORT, () => {
