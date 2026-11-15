@@ -4,6 +4,9 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
 
+// የተስተካከለ የ Chapa Secret Key በቀጥታ ተካትቷል
+process.env.CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK-2pBuoa0dU4xdQENMAyRiFuw6ATo6oRq4';
+
 const requiredEnv = ['TELEGRAM_BOT_TOKEN', 'CHAPA_SECRET_KEY', 'PUBLIC_BASE_URL'];
 const missingEnv = requiredEnv.filter((key) => !process.env[key]);
 if (missingEnv.length) {
