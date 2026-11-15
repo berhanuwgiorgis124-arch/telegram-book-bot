@@ -86,11 +86,14 @@ bot.start(async (ctx) => {
   }
 });
 
+// አውቶማቲክ የክፍያ ማረጋገጫ በ Webhook በኩል
 app.post('/api/chapa-webhook', async (req, res) => {
   const event = req.body;
   const txRef = event.tx_ref;
 
-  if (event.status === 'success' && txRef && orders.has(txRef)) {
+  console.log('Webhook received:', event);
+
+  if (txRef && orders.has(txRef)) {
     const order = orders.get(txRef);
     try {
       const verifyRes = await fetch(`${CHAPA_VERIFY_URL}/${txRef}`, {
@@ -103,31 +106,39 @@ app.post('/api/chapa-webhook', async (req, res) => {
           source: './content/book.pdf',
           filename: 'book.pdf',
         }, {
-          caption: `እንኳን ደስ አሎት! የ "${bookTitle}" ክፍያዎ ተሳክቷል። መጽሐፉን ከላይ ማግኘት ይችላሉ። 📖`,
+          caption: `እንኳን ደስ አሎት! የ "${bookTitle}" ክፍያዎ በ Chapa ተረጋግጧል። መጽሐፉን ከላይ ማግኘት ይችላሉ። 📖`,
         });
         orders.delete(txRef);
       }
     } catch (err) {
-      console.error('Verification error:', err);
+      console.error('Webhook verification error:', err);
     }
   }
   res.sendStatus(200);
 });
 
+// ተጠቃሚው ክፍያውን ፈጽሞ ወደ ቦቱ ሲመለስ አውቶማቲክ ማረጋገጫ
 app.get('/success', async (req, res) => {
   const txRef = req.query.tx_ref;
   if (txRef && orders.has(txRef)) {
     const order = orders.get(txRef);
     try {
-      await bot.telegram.sendDocument(order.userId, {
-        source: './content/book.pdf',
-        filename: 'book.pdf',
-      }, {
-        caption: `ክፍያዎ ተረጋግጧል! የ "${bookTitle}" መጽሐፍ ከቦቱ አግኝተዋል። 📖`,
+      const verifyRes = await fetch(`${CHAPA_VERIFY_URL}/${txRef}`, {
+        headers: { Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY.trim()}` },
       });
-      orders.delete(txRef);
+      const verifyData = await verifyRes.json();
+
+      if (verifyRes.ok && verifyData.status === 'success') {
+        await bot.telegram.sendDocument(order.userId, {
+          source: './content/book.pdf',
+          filename: 'book.pdf',
+        }, {
+          caption: `ክፍያዎ በ Chapa ተረጋግጧል! የ "${bookTitle}" መጽሐፍ ከቦቱ አግኝተዋል። 📖`,
+        });
+        orders.delete(txRef);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Success route verification error:', err);
     }
   }
   res.send('<h3>ክፍያዎ በተሳካ ሁኔታ ተጠናቋል። ወደ ቴሌግራም ቦት በመመለስ መጽሐፍዎን ማውረድ ይችላሉ!</h3>');
@@ -137,10 +148,9 @@ app.get('/', (req, res) => {
   res.send('Telegram Book Bot is running!');
 });
 
-// የ 409 Conflict ግጭትን ሙሉ በሙሉ ለመከላከል ዌብሁክን ማጽዳት እና ማስጀመር
 bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
   bot.launch({ drop_pending_updates: true }).then(() => {
-    console.log('Bot started successfully without conflicts!');
+    console.log('Bot started successfully with automatic verification!');
   });
 }).catch((err) => {
   console.error('Webhook reset error:', err);
