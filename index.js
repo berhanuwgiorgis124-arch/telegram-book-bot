@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
 
-// አዲሱ የቴሌግራም ቶከን እና የ Chapa ኬይ በቀጥታ ተካትተዋል
+// ትክክለኛው የቴሌግራም ቶከን እና የ Chapa ኬይ በቀጥታ ተካትተዋል
 process.env.TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8631290638:AAEXYExCUDhEedg2ifqtWycmyyx210uVMrw';
 process.env.CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK-2pBuoa0dU4xdQENMAyRiFuw6ATo6oRq4';
 
@@ -97,7 +97,7 @@ bot.on('text', async (ctx) => {
       );
     } catch (err) {
       console.error(err);
-      await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።');
+      await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።።');
     }
   }
 });
@@ -153,14 +153,8 @@ app.get('/', (req, res) => {
   res.send('Telegram Book Bot is running!');
 });
 
-// የድሮውን ዌብሁክ እና ኮንፍሊክት በማጥፋት ቦቱን በአዲስ መልክ ማስጀመር
-bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
-  bot.launch().then(() => {
-    console.log('Bot started successfully with new token and no conflicts!');
-  });
-}).catch((err) => {
-  console.error('Webhook reset error:', err);
-  bot.launch();
+bot.launch().then(() => {
+  console.log('Bot started successfully with new token!');
 });
 
 app.listen(PORT, () => {
