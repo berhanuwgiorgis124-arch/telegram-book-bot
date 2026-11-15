@@ -59,7 +59,7 @@ async function createChapaCheckout(email, userId, txRef) {
   return data.data.checkout_url;
 }
 
-// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት (ርዕስ እና ደራሲ ተካትተዋል)
+// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት (ኢሜይል መጠየቅ የለም)
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
   const txRef = `tx-book-${userId}-${Date.now()}`;
