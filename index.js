@@ -4,7 +4,6 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
 
-// የተስተካከለ የ Chapa Secret Key በቀጥታ ተካትቷል
 process.env.CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY || 'CHASECK-2pBuoa0dU4xdQENMAyRiFuw6ATo6oRq4';
 
 const requiredEnv = ['TELEGRAM_BOT_TOKEN', 'CHAPA_SECRET_KEY', 'PUBLIC_BASE_URL'];
@@ -29,7 +28,6 @@ const orders = new Map();
 
 app.use(express.json({ limit: '100kb' }));
 
-// የቺፓ ክፍያ መፈጸሚያ ሊንክ ማመንጫ
 async function createChapaCheckout(email, userId, txRef) {
   const response = await fetch(CHAPA_API_URL, {
     method: 'POST',
@@ -60,7 +58,6 @@ async function createChapaCheckout(email, userId, txRef) {
   return data.data.checkout_url;
 }
 
-// ቴሌግራም ቦት ትዕዛዞች
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
   pendingCustomers.set(userId, { step: 'awaiting_email' });
@@ -103,7 +100,6 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// የቺፓ ዌብሁክ እና የክፍያ ማረጋገጫ
 app.post('/api/chapa-webhook', async (req, res) => {
   const event = req.body;
   const txRef = event.tx_ref;
@@ -155,8 +151,14 @@ app.get('/', (req, res) => {
   res.send('Telegram Book Bot is running!');
 });
 
-bot.launch().then(() => {
-  console.log('Bot started successfully!');
+// ድንገተኛ የኮንፍሊክት ችግሮችን ለመከላከል የድሮውን ዌብሁክ ቆሻሻ እናጸዳለን
+bot.telegram.deleteWebhook({ drop_pending_updates: true }).then(() => {
+  bot.launch().then(() => {
+    console.log('Bot started successfully without conflicts!');
+  });
+}).catch((err) => {
+  console.error('Webhook reset error:', err);
+  bot.launch();
 });
 
 app.listen(PORT, () => {
