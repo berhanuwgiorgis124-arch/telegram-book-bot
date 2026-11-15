@@ -30,36 +30,43 @@ const orders = new Map();
 app.use(express.json({ limit: '100kb' }));
 
 async function createChapaCheckout(email, userId, txRef) {
-  const response = await fetch(CHAPA_API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      amount: bookPrice,
-      currency: 'ETB',
-      email: email,
-      first_name: `User${userId}`,
-      last_name: 'Telegram',
-      tx_ref: txRef,
-      callback_url: `${BASE_URL}/api/chapa-webhook`,
-      return_url: `${BASE_URL}/success?tx_ref=${txRef}`,
-      customization: {
-        title: bookTitle,
-        description: `የመጽሐፍ ግዢ በ Chapa - ${bookPrice} ETB`,
+  try {
+    const response = await fetch(CHAPA_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
+        'Content-Type': 'application/json',
       },
-    }),
-  });
+      body: JSON.stringify({
+        amount: bookPrice,
+        currency: 'ETB',
+        email: email,
+        first_name: `User${userId}`,
+        last_name: 'Telegram',
+        tx_ref: txRef,
+        callback_url: `${BASE_URL}/api/chapa-webhook`,
+        return_url: `${BASE_URL}/success?tx_ref=${txRef}`,
+        customization: {
+          title: bookTitle,
+          description: `የመጽሐፍ ግዢ በ Chapa - ${bookPrice} ETB`,
+        },
+      }),
+    });
 
-  const data = await response.json();
-  if (!response.ok || data.status !== 'success') {
-    throw new Error(data.message || 'Failed to initialize Chapa payment');
+    const data = await response.json();
+    console.log('Chapa Response:', data); // የትኛውንም ስህተት በሰርቨር ሎግ ለማየት
+
+    if (!response.ok || data.status !== 'success') {
+      throw new Error(data.message || JSON.stringify(data));
+    }
+    return data.data.checkout_url;
+  } catch (err) {
+    console.error('Chapa API Error Details:', err);
+    throw err;
   }
-  return data.data.checkout_url;
 }
 
-// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት (ኢሜይል መጠየቅ የለም)
+// /start ሲሉ በቀጥታ የክፍያ ሊንክ ማመንጨት
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
   const txRef = `tx-book-${userId}-${Date.now()}`;
@@ -76,8 +83,8 @@ bot.start(async (ctx) => {
       ])
     );
   } catch (err) {
-    console.error('Chapa error:', err);
-    await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።');
+    console.error('Checkout creation failed:', err);
+    await ctx.reply('የክፍያ ሊንክ ማመንጨት አልተቻለም። እባክዎ የ Chapa አካውንት መረጃዎ ትክክል መሆኑን ያረጋግጡ።');
   }
 });
 
